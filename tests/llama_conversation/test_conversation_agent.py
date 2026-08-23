@@ -18,6 +18,7 @@ from custom_components.llama_conversation.const import (
     CONF_REMEMBER_NUM_INTERACTIONS,
     CONF_REMEMBER_CONVERSATION,
     CONF_ENABLE_FOLLOW_UP_CONVERSATION,
+    DEFAULT_CONTINUE_CONVERSATION_MARKER,
     DEFAULT_PROMPT,
     DOMAIN,
 )
@@ -25,10 +26,11 @@ from custom_components.llama_conversation.utils import MalformedToolCallExceptio
 
 
 class DummyClient:
-    def __init__(self, hass):
+    def __init__(self, hass, response_content="hello from llm"):
         self.hass = hass
         self.generated_prompts = []
         self.seen_conversations = []
+        self.response_content = response_content
 
     def _generate_system_prompt(self, prompt_template, llm_api, entity_options):
         self.generated_prompts.append(prompt_template)
@@ -37,7 +39,7 @@ class DummyClient:
     async def _async_generate(self, conv, agent_id, chat_log, entity_options):
         self.seen_conversations.append(list(conv))
         async def gen():
-            yield AssistantContent(agent_id=agent_id, content="hello from llm")
+            yield AssistantContent(agent_id=agent_id, content=self.response_content)
         return gen()
 
 
@@ -129,8 +131,10 @@ async def test_async_process_generates_response(monkeypatch, hass):
 
 
 @pytest.mark.asyncio
-async def test_async_process_continue_conversation_when_follow_up_enabled(monkeypatch, hass):
-    client = DummyClient(hass)
+async def test_async_process_continues_when_model_includes_marker(monkeypatch, hass):
+    # The model decides whether a follow-up makes sense by ending its
+    # response with the continue-conversation marker taught in the prompt.
+    client = DummyClient(hass, response_content=f"Anything else? {DEFAULT_CONTINUE_CONVERSATION_MARKER}")
     subentry = DummySubentry()
     subentry.data[CONF_ENABLE_FOLLOW_UP_CONVERSATION] = True
     entry = DummyEntry(subentry=subentry, runtime_data=client)
@@ -168,6 +172,97 @@ async def test_async_process_continue_conversation_when_follow_up_enabled(monkey
     )
 
     assert result.continue_conversation is True
+    # the marker itself should never be spoken aloud
+    assert DEFAULT_CONTINUE_CONVERSATION_MARKER not in result.response.speech["plain"]["speech"]
+    assert result.response.speech["plain"]["speech"] == "Anything else?"
+
+
+@pytest.mark.asyncio
+async def test_async_process_does_not_continue_without_marker(monkeypatch, hass):
+    # Follow-up is enabled, but the model didn't end its response with the
+    # marker (e.g. it said something conclusive), so no follow-up is invited.
+    client = DummyClient(hass, response_content="Okay, let me know if there's anything else.")
+    subentry = DummySubentry()
+    subentry.data[CONF_ENABLE_FOLLOW_UP_CONVERSATION] = True
+    entry = DummyEntry(subentry=subentry, runtime_data=client)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = entry
+
+    @contextmanager
+    def fake_chat_session(_hass, _conversation_id):
+        yield FakeChatSession()
+
+    @contextmanager
+    def fake_chat_log(_hass, _session, _user_input):
+        yield FakeChatLog()
+
+    monkeypatch.setattr(
+        "custom_components.llama_conversation.conversation.chat_session.async_get_chat_session",
+        fake_chat_session,
+    )
+    monkeypatch.setattr(
+        "custom_components.llama_conversation.conversation.conversation.async_get_chat_log",
+        fake_chat_log,
+    )
+
+    agent = LocalLLMAgent(hass, entry, subentry, client)
+
+    result = await agent.async_process(
+        ConversationInput(
+            text="no thanks",
+            context=None,
+            conversation_id="conv-id",
+            device_id=None,
+            satellite_id=None,
+            language="en",
+            agent_id="agent-1",
+        )
+    )
+
+    assert result.continue_conversation is False
+
+
+@pytest.mark.asyncio
+async def test_async_process_ignores_marker_when_follow_up_disabled(monkeypatch, hass):
+    # Even if the model somehow includes the marker, it must not be honored
+    # (or leak into speech) when the feature is off.
+    client = DummyClient(hass, response_content=f"Anything else? {DEFAULT_CONTINUE_CONVERSATION_MARKER}")
+    subentry = DummySubentry()
+    entry = DummyEntry(subentry=subentry, runtime_data=client)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = entry
+
+    @contextmanager
+    def fake_chat_session(_hass, _conversation_id):
+        yield FakeChatSession()
+
+    @contextmanager
+    def fake_chat_log(_hass, _session, _user_input):
+        yield FakeChatLog()
+
+    monkeypatch.setattr(
+        "custom_components.llama_conversation.conversation.chat_session.async_get_chat_session",
+        fake_chat_session,
+    )
+    monkeypatch.setattr(
+        "custom_components.llama_conversation.conversation.conversation.async_get_chat_log",
+        fake_chat_log,
+    )
+
+    agent = LocalLLMAgent(hass, entry, subentry, client)
+
+    result = await agent.async_process(
+        ConversationInput(
+            text="turn on the lights",
+            context=None,
+            conversation_id="conv-id",
+            device_id=None,
+            satellite_id=None,
+            language="en",
+            agent_id="agent-1",
+        )
+    )
+
+    assert result.continue_conversation is False
+    assert result.response.speech["plain"]["speech"] == f"Anything else? {DEFAULT_CONTINUE_CONVERSATION_MARKER}"
 
 
 @pytest.mark.asyncio

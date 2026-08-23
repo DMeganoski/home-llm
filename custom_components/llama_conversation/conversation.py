@@ -13,7 +13,7 @@ from homeassistant.exceptions import TemplateError, HomeAssistantError
 from homeassistant.helpers import chat_session, intent, llm
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
-from custom_components.llama_conversation.utils import MalformedToolCallException, strip_thinking_blocks
+from custom_components.llama_conversation.utils import MalformedToolCallException, strip_thinking_blocks, extract_continue_marker
 
 from .entity import LocalLLMEntity, LocalLLMClient, LocalLLMConfigEntry
 from .const import (
@@ -23,6 +23,8 @@ from .const import (
     CONF_REMEMBER_CONVERSATION,
     CONF_ENABLE_FOLLOW_UP_CONVERSATION,
     DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION,
+    CONF_CONTINUE_CONVERSATION_MARKER,
+    DEFAULT_CONTINUE_CONVERSATION_MARKER,
     CONF_REMEMBER_NUM_INTERACTIONS,
     CONF_MAX_TOOL_CALL_ITERATIONS,
     CONF_THINKING_PREFIX,
@@ -106,6 +108,7 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent, LocalLLMEntit
             refresh_system_prompt = self.runtime_options.get(CONF_REFRESH_SYSTEM_PROMPT, DEFAULT_REFRESH_SYSTEM_PROMPT)
             remember_conversation = self.runtime_options.get(CONF_REMEMBER_CONVERSATION, DEFAULT_REMEMBER_CONVERSATION)
             enable_follow_up_conversation = self.runtime_options.get(CONF_ENABLE_FOLLOW_UP_CONVERSATION, DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION)
+            continue_conversation_marker = self.runtime_options.get(CONF_CONTINUE_CONVERSATION_MARKER, DEFAULT_CONTINUE_CONVERSATION_MARKER)
             remember_num_interactions = self.runtime_options.get(CONF_REMEMBER_NUM_INTERACTIONS, DEFAULT_REMEMBER_NUM_INTERACTIONS)
             max_tool_call_iterations = self.runtime_options.get(CONF_MAX_TOOL_CALL_ITERATIONS, DEFAULT_MAX_TOOL_CALL_ITERATIONS)
             llm_api: llm.APIInstance | None = None
@@ -244,12 +247,15 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent, LocalLLMEntit
                 )
 
             has_speech = False
+            model_wants_continue = False
             think_prefix = self.runtime_options.get(CONF_THINKING_PREFIX, DEFAULT_THINKING_PREFIX)
             think_suffix = self.runtime_options.get(CONF_THINKING_SUFFIX, DEFAULT_THINKING_SUFFIX)
             for i in range(1, len(message_history)):
                 cur_msg = message_history[-1 * i]
                 if isinstance(cur_msg, conversation.AssistantContent) and cur_msg.content:
                     sanitized_speech = strip_thinking_blocks(cur_msg.content, think_prefix, think_suffix)
+                    if enable_follow_up_conversation:
+                        sanitized_speech, model_wants_continue = extract_continue_marker(sanitized_speech, continue_conversation_marker)
                     if sanitized_speech:
                         intent_response.async_set_speech(sanitized_speech)
                         has_speech = True
@@ -262,5 +268,5 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent, LocalLLMEntit
             return ConversationResult(
                 response=intent_response,
                 conversation_id=user_input.conversation_id,
-                continue_conversation=enable_follow_up_conversation,
+                continue_conversation=enable_follow_up_conversation and model_wants_continue,
             )
