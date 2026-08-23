@@ -438,6 +438,11 @@ def get_oai_formatted_messages(
                         } for t in message.tool_calls
                     ]
                 })
+            else:
+                messages.append({
+                    "role": "assistant",
+                    "content": str(message.content) if message.content else ""
+                })
         elif message.role == "tool_result":
             if tool_result_to_str:
                 content = json_helper.json_dumps(message.tool_result)
