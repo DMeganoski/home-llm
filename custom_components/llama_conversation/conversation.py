@@ -21,6 +21,8 @@ from .const import (
     CONF_PROMPT,
     CONF_REFRESH_SYSTEM_PROMPT,
     CONF_REMEMBER_CONVERSATION,
+    CONF_ENABLE_FOLLOW_UP_CONVERSATION,
+    DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION,
     CONF_REMEMBER_NUM_INTERACTIONS,
     CONF_MAX_TOOL_CALL_ITERATIONS,
     CONF_THINKING_PREFIX,
@@ -103,6 +105,7 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent, LocalLLMEntit
             raw_prompt = self.runtime_options.get(CONF_PROMPT, DEFAULT_PROMPT)
             refresh_system_prompt = self.runtime_options.get(CONF_REFRESH_SYSTEM_PROMPT, DEFAULT_REFRESH_SYSTEM_PROMPT)
             remember_conversation = self.runtime_options.get(CONF_REMEMBER_CONVERSATION, DEFAULT_REMEMBER_CONVERSATION)
+            enable_follow_up_conversation = self.runtime_options.get(CONF_ENABLE_FOLLOW_UP_CONVERSATION, DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION)
             remember_num_interactions = self.runtime_options.get(CONF_REMEMBER_NUM_INTERACTIONS, DEFAULT_REMEMBER_NUM_INTERACTIONS)
             max_tool_call_iterations = self.runtime_options.get(CONF_MAX_TOOL_CALL_ITERATIONS, DEFAULT_MAX_TOOL_CALL_ITERATIONS)
             llm_api: llm.APIInstance | None = None
@@ -257,5 +260,7 @@ class LocalLLMAgent(ConversationEntity, AbstractConversationAgent, LocalLLMEntit
                 _LOGGER.debug(message_history)
 
             return ConversationResult(
-                response=intent_response, conversation_id=user_input.conversation_id
+                response=intent_response,
+                conversation_id=user_input.conversation_id,
+                continue_conversation=enable_follow_up_conversation,
             )

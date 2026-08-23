@@ -17,6 +17,7 @@ from custom_components.llama_conversation.const import (
     CONF_REFRESH_SYSTEM_PROMPT,
     CONF_REMEMBER_NUM_INTERACTIONS,
     CONF_REMEMBER_CONVERSATION,
+    CONF_ENABLE_FOLLOW_UP_CONVERSATION,
     DEFAULT_PROMPT,
     DOMAIN,
 )
@@ -123,6 +124,50 @@ async def test_async_process_generates_response(monkeypatch, hass):
     # System prompt should be rendered once when message history is empty.
     assert client.generated_prompts == [DEFAULT_PROMPT]
     assert agent.supported_languages == MATCH_ALL
+    # Follow-up conversation is opt-in and off by default.
+    assert result.continue_conversation is False
+
+
+@pytest.mark.asyncio
+async def test_async_process_continue_conversation_when_follow_up_enabled(monkeypatch, hass):
+    client = DummyClient(hass)
+    subentry = DummySubentry()
+    subentry.data[CONF_ENABLE_FOLLOW_UP_CONVERSATION] = True
+    entry = DummyEntry(subentry=subentry, runtime_data=client)
+    hass.data.setdefault(DOMAIN, {})[entry.entry_id] = entry
+
+    @contextmanager
+    def fake_chat_session(_hass, _conversation_id):
+        yield FakeChatSession()
+
+    @contextmanager
+    def fake_chat_log(_hass, _session, _user_input):
+        yield FakeChatLog()
+
+    monkeypatch.setattr(
+        "custom_components.llama_conversation.conversation.chat_session.async_get_chat_session",
+        fake_chat_session,
+    )
+    monkeypatch.setattr(
+        "custom_components.llama_conversation.conversation.conversation.async_get_chat_log",
+        fake_chat_log,
+    )
+
+    agent = LocalLLMAgent(hass, entry, subentry, client)
+
+    result = await agent.async_process(
+        ConversationInput(
+            text="turn on the lights",
+            context=None,
+            conversation_id="conv-id",
+            device_id=None,
+            satellite_id=None,
+            language="en",
+            agent_id="agent-1",
+        )
+    )
+
+    assert result.continue_conversation is True
 
 
 @pytest.mark.asyncio
