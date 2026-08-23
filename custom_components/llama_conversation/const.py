@@ -73,26 +73,32 @@ DEFAULT_PROMPT_BASE = """<persona>
 {{ device.entity_id }} '{{ device.name }}' = {{ device.state }};{{ device.attributes | join(";") }}
 {%- endfor %}
 {%- endfor %}
-<current_date>
-{%- if enable_follow_up_conversation %}
-If you expect the user may want to say something else afterwards (for example, you asked a question, or the topic seems unfinished), end your entire response with the exact text {{ continue_conversation_marker }} on its own line. Only include it when a follow-up genuinely makes sense; do not include it if the conversation is complete.
-{%- endif %}"""
+<current_date>"""
 DEFAULT_PROMPT_BASE_LEGACY = """<persona>
 <devices>:
 {{ formatted_devices }}
-<current_date>
-{%- if enable_follow_up_conversation %}
-If you expect the user may want to say something else afterwards (for example, you asked a question, or the topic seems unfinished), end your entire response with the exact text {{ continue_conversation_marker }} on its own line. Only include it when a follow-up genuinely makes sense; do not include it if the conversation is complete.
-{%- endif %}"""
+<current_date>"""
 ICL_EXTRAS = """
 {% for item in response_examples %}
 {{ item.request }}
 {{ item.response }}
 {{ tool_call_prefix }}{{ item.tool | to_json }}{{ tool_call_suffix }}
 {% endfor %}"""
+FOLLOW_UP_CONVERSATION_EXTRAS = """
+{%- if enable_follow_up_conversation %}
+Most responses fully resolve the request and need no follow-up at all - this is not an instruction to always ask a follow-up question. Only when a follow-up genuinely makes sense (for example, you asked the user a clarifying question, or you are waiting on more information to complete their request), end your entire response with the exact text {{ continue_conversation_marker }} on its own line, and never include it otherwise.
+
+For example:
+user: turn on a light
+assistant: Which light would you like me to turn on?
+{{ continue_conversation_marker }}
+
+user: turn on the office light
+assistant: The office light is now on.
+{%- endif %}"""
 NO_SYSTEM_PROMPT_EXTRAS = """
 <user_instruction>:"""
-DEFAULT_PROMPT = DEFAULT_PROMPT_BASE + ICL_EXTRAS
+DEFAULT_PROMPT = DEFAULT_PROMPT_BASE + ICL_EXTRAS + FOLLOW_UP_CONVERSATION_EXTRAS
 CONF_CHAT_MODEL = "huggingface_model"
 DEFAULT_CHAT_MODEL = "acon96/Home-3B-v3-GGUF"
 RECOMMENDED_CHAT_MODELS = [ "acon96/Home-3B-v3-GGUF", "acon96/Home-1B-v3-GGUF", "TheBloke/Mistral-7B-Instruct-v0.2-GGUF" ]
@@ -254,7 +260,7 @@ DEFAULT_OPTIONS = types.MappingProxyType(
 def option_overrides(backend_type: str) -> dict[str, Any]:
     return {
         "home-functiongemma": {
-            CONF_PROMPT: DEFAULT_PROMPT_BASE + NO_SYSTEM_PROMPT_EXTRAS,
+            CONF_PROMPT: DEFAULT_PROMPT_BASE + FOLLOW_UP_CONVERSATION_EXTRAS + NO_SYSTEM_PROMPT_EXTRAS,
             CONF_USE_IN_CONTEXT_LEARNING_EXAMPLES: False,
             CONF_TOOL_CALL_PREFIX: "<start_function_call>",
             CONF_TOOL_CALL_SUFFIX: "<end_function_call>",
@@ -328,40 +334,40 @@ def option_overrides(backend_type: str) -> dict[str, Any]:
             CONF_ENABLE_LEGACY_TOOL_CALLING: True
         },
         "qwen3": {
-            CONF_PROMPT: DEFAULT_PROMPT_BASE,
+            CONF_PROMPT: DEFAULT_PROMPT_BASE + FOLLOW_UP_CONVERSATION_EXTRAS,
             CONF_TEMPERATURE: 0.6,
             CONF_TOP_K: 20,
             CONF_TOP_P: 0.95
         },
         "mistral": {
-            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS + NO_SYSTEM_PROMPT_EXTRAS,
+            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS + FOLLOW_UP_CONVERSATION_EXTRAS + NO_SYSTEM_PROMPT_EXTRAS,
             CONF_MIN_P: 0.1,
             CONF_TYPICAL_P: 0.9,
             # no prompt formats with tool calling support, so just use legacy tool calling
             CONF_ENABLE_LEGACY_TOOL_CALLING: True,
         },
         "mixtral": {
-            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS + NO_SYSTEM_PROMPT_EXTRAS,
+            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS + FOLLOW_UP_CONVERSATION_EXTRAS + NO_SYSTEM_PROMPT_EXTRAS,
             CONF_MIN_P: 0.1,
             CONF_TYPICAL_P: 0.9,
             # no prompt formats with tool calling support, so just use legacy tool calling
             CONF_ENABLE_LEGACY_TOOL_CALLING: True,
         },
         "llama-3": {
-            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS,
+            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS + FOLLOW_UP_CONVERSATION_EXTRAS,
         },
         "llama3": {
-            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS,
+            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS + FOLLOW_UP_CONVERSATION_EXTRAS,
         },
         "zephyr": {
-            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS,
+            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS + FOLLOW_UP_CONVERSATION_EXTRAS,
             
         },
         "phi-3": {
-            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS,
+            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS + FOLLOW_UP_CONVERSATION_EXTRAS,
         },
         "command-r": {
-            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS,
+            CONF_PROMPT: DEFAULT_PROMPT_BASE + ICL_EXTRAS + FOLLOW_UP_CONVERSATION_EXTRAS,
         },
         "stablehome": {
             CONF_PROMPT: DEFAULT_PROMPT_BASE_LEGACY,
