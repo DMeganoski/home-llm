@@ -35,8 +35,8 @@ from custom_components.llama_conversation.const import (
     RECOMMENDED_CHAT_MODELS,
 )
 from custom_components.llama_conversation.utils import LlamaCppPythonInstallError
-from custom_components.llama_conversation.utils import LlamaCppPythonInstallError, strip_thinking_blocks
-from custom_components.llama_conversation.const import DEFAULT_THINKING_PREFIX, DEFAULT_THINKING_SUFFIX
+from custom_components.llama_conversation.utils import LlamaCppPythonInstallError, strip_thinking_blocks, extract_continue_marker
+from custom_components.llama_conversation.const import DEFAULT_THINKING_PREFIX, DEFAULT_THINKING_SUFFIX, DEFAULT_CONTINUE_CONVERSATION_MARKER
 
 class TestStripThinkingBlocks:
     """Tests for the thinking-block sanitizer that prevents reasoning leakage into TTS speech."""
@@ -113,6 +113,46 @@ class TestStripThinkingBlocks:
         content = "intro <think>middle</think> outro"
         result = strip_thinking_blocks(content, DEFAULT_THINKING_PREFIX, DEFAULT_THINKING_SUFFIX)
         assert result == "intro  outro"
+
+
+class TestExtractContinueMarker:
+    """Tests for detecting/stripping the model-driven follow-up-conversation marker."""
+
+    def test_marker_present_is_stripped_and_detected(self):
+        content = f"Anything else? {DEFAULT_CONTINUE_CONVERSATION_MARKER}"
+        cleaned, should_continue = extract_continue_marker(content, DEFAULT_CONTINUE_CONVERSATION_MARKER)
+        assert cleaned == "Anything else?"
+        assert should_continue is True
+
+    def test_marker_absent_leaves_content_unchanged(self):
+        content = "Okay, turning on the lights."
+        cleaned, should_continue = extract_continue_marker(content, DEFAULT_CONTINUE_CONVERSATION_MARKER)
+        assert cleaned == content
+        assert should_continue is False
+
+    def test_marker_on_its_own_line_is_stripped(self):
+        content = f"Anything else?\n{DEFAULT_CONTINUE_CONVERSATION_MARKER}"
+        cleaned, should_continue = extract_continue_marker(content, DEFAULT_CONTINUE_CONVERSATION_MARKER)
+        assert cleaned == "Anything else?"
+        assert should_continue is True
+
+    def test_marker_only_counts_at_the_end(self):
+        """A marker mentioned mid-sentence (e.g. the model discussing it) shouldn't trigger."""
+        content = f"{DEFAULT_CONTINUE_CONVERSATION_MARKER} is not a real word, by the way."
+        cleaned, should_continue = extract_continue_marker(content, DEFAULT_CONTINUE_CONVERSATION_MARKER)
+        assert cleaned == content
+        assert should_continue is False
+
+    def test_empty_content_returns_empty(self):
+        cleaned, should_continue = extract_continue_marker("", DEFAULT_CONTINUE_CONVERSATION_MARKER)
+        assert cleaned == ""
+        assert should_continue is False
+
+    def test_empty_marker_returns_original(self):
+        content = "Anything else?"
+        cleaned, should_continue = extract_continue_marker(content, "")
+        assert cleaned == content
+        assert should_continue is False
 
 
 @pytest.fixture

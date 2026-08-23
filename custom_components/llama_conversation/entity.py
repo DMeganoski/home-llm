@@ -33,6 +33,10 @@ from .const import (
     CONF_TOOL_CALL_SUFFIX,
     CONF_ENABLE_LEGACY_TOOL_CALLING,
     CONF_ENABLE_STREAMING,
+    CONF_ENABLE_FOLLOW_UP_CONVERSATION,
+    CONF_CONTINUE_CONVERSATION_MARKER,
+    DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION,
+    DEFAULT_CONTINUE_CONVERSATION_MARKER,
     DEFAULT_EXTRA_ATTRIBUTES_TO_EXPOSE,
     DEFAULT_USE_IN_CONTEXT_LEARNING_EXAMPLES,
     DEFAULT_IN_CONTEXT_EXAMPLES_FILE,
@@ -617,6 +621,8 @@ class LocalLLMClient:
             "response_examples": [],
             "tool_call_prefix": tool_call_prefix,
             "tool_call_suffix": tool_call_suffix,
+            "enable_follow_up_conversation": entity_options.get(CONF_ENABLE_FOLLOW_UP_CONVERSATION, DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION),
+            "continue_conversation_marker": entity_options.get(CONF_CONTINUE_CONVERSATION_MARKER, DEFAULT_CONTINUE_CONVERSATION_MARKER),
         }
 
         if llm_api:

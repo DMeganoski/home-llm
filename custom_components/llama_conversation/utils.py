@@ -652,4 +652,21 @@ def strip_thinking_blocks(content: str, think_prefix: str, think_suffix: str) ->
         cursor = block_end + len(think_suffix)
 
     return "".join(cleaned_parts).strip()
-    
+
+
+def extract_continue_marker(content: str, marker: str) -> tuple[str, bool]:
+    """Detect and strip a trailing continue-conversation marker from a response.
+
+    The model is instructed (via the system prompt) to end its response with
+    this exact marker when it expects the user might say something else
+    afterwards. Returns the response with the marker removed, and whether it
+    was present.
+    """
+    if not content or not marker:
+        return content, False
+
+    stripped = content.rstrip()
+    if stripped.endswith(marker):
+        return stripped[: -len(marker)].rstrip(), True
+
+    return content, False

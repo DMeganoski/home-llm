@@ -73,11 +73,17 @@ DEFAULT_PROMPT_BASE = """<persona>
 {{ device.entity_id }} '{{ device.name }}' = {{ device.state }};{{ device.attributes | join(";") }}
 {%- endfor %}
 {%- endfor %}
-<current_date>"""
+<current_date>
+{%- if enable_follow_up_conversation %}
+If you expect the user may want to say something else afterwards (for example, you asked a question, or the topic seems unfinished), end your entire response with the exact text {{ continue_conversation_marker }} on its own line. Only include it when a follow-up genuinely makes sense; do not include it if the conversation is complete.
+{%- endif %}"""
 DEFAULT_PROMPT_BASE_LEGACY = """<persona>
 <devices>:
 {{ formatted_devices }}
-<current_date>"""
+<current_date>
+{%- if enable_follow_up_conversation %}
+If you expect the user may want to say something else afterwards (for example, you asked a question, or the topic seems unfinished), end your entire response with the exact text {{ continue_conversation_marker }} on its own line. Only include it when a follow-up genuinely makes sense; do not include it if the conversation is complete.
+{%- endif %}"""
 ICL_EXTRAS = """
 {% for item in response_examples %}
 {{ item.request }}
@@ -177,6 +183,8 @@ CONF_REMEMBER_CONVERSATION_TIME_MINUTES = "remember_conversation_time_minutes"
 DEFAULT_REMEMBER_CONVERSATION_TIME_MINUTES = 2
 CONF_ENABLE_FOLLOW_UP_CONVERSATION = "enable_follow_up_conversation"
 DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION = False
+CONF_CONTINUE_CONVERSATION_MARKER = "continue_conversation_marker"
+DEFAULT_CONTINUE_CONVERSATION_MARKER = "[CONTINUE]"
 CONF_MAX_TOOL_CALL_ITERATIONS = "max_tool_call_iterations"
 DEFAULT_MAX_TOOL_CALL_ITERATIONS = 3
 CONF_PROMPT_CACHING_ENABLED = "prompt_caching"
@@ -227,6 +235,7 @@ DEFAULT_OPTIONS = types.MappingProxyType(
         CONF_REMEMBER_CONVERSATION: DEFAULT_REMEMBER_CONVERSATION,
         CONF_REMEMBER_NUM_INTERACTIONS: DEFAULT_REMEMBER_NUM_INTERACTIONS,
         CONF_ENABLE_FOLLOW_UP_CONVERSATION: DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION,
+        CONF_CONTINUE_CONVERSATION_MARKER: DEFAULT_CONTINUE_CONVERSATION_MARKER,
         CONF_USE_IN_CONTEXT_LEARNING_EXAMPLES: DEFAULT_USE_IN_CONTEXT_LEARNING_EXAMPLES,
         CONF_IN_CONTEXT_EXAMPLES_FILE: DEFAULT_IN_CONTEXT_EXAMPLES_FILE,
         CONF_NUM_IN_CONTEXT_EXAMPLES: DEFAULT_NUM_IN_CONTEXT_EXAMPLES,
