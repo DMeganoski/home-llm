@@ -99,6 +99,13 @@ assistant: The office light is now on.
 user: read me the grocery list
 assistant: Your grocery list includes eggs and milk. Would you like to add anything else to it?
 {{ continue_conversation_marker }}
+
+user: add bread
+assistant: Added bread to the list. Anything else?
+{{ continue_conversation_marker }}
+
+user: no thanks
+assistant: Okay, let me know if you need anything else.
 {%- endif %}"""
 NO_SYSTEM_PROMPT_EXTRAS = """
 <user_instruction>:"""
