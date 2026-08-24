@@ -95,6 +95,10 @@ assistant: Which light would you like me to turn on?
 
 user: turn on the office light
 assistant: The office light is now on.
+
+user: read me the grocery list
+assistant: Your grocery list includes eggs and milk. Would you like to add anything else to it?
+{{ continue_conversation_marker }}
 {%- endif %}"""
 NO_SYSTEM_PROMPT_EXTRAS = """
 <user_instruction>:"""
