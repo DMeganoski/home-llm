@@ -356,29 +356,59 @@ def install_llama_cpp_python(
 def format_url(*, hostname: str, port: str, ssl: bool, path: str):
     return f"{'https' if ssl else 'http'}://{hostname}{ ':' + port if port else ''}{path}"
 
-def get_oai_formatted_tools(llm_api: llm.APIInstance, domains: list[str]) -> List[ChatCompletionTool]:    
+def _convert_tool_parameters(name: str, schema, custom_serializer) -> dict | None:
+    """Convert a tool's voluptuous schema to an OpenAPI parameters dict.
+
+    voluptuous_openapi (and probatio's compatibility shim) can legitimately
+    return their internal UNSUPPORTED sentinel for schema constructs they
+    can't represent, rather than a dict. That sentinel isn't itself a
+    library-stable object we can import and compare against safely across
+    both backends, so we just check the shape of the result: a real
+    conversion is always a dict. Anything else means this tool can't be
+    exposed to the model, so we skip it instead of handing a broken
+    "parameters" value to the API client, which would raise deep inside
+    request validation with an error that doesn't point back to the tool
+    that caused it.
+    """
+    converted = convert_to_openapi(schema, custom_serializer=custom_serializer)
+    if not isinstance(converted, dict):
+        _LOGGER.warning(
+            "Skipping tool '%s': its parameters schema could not be converted to OpenAPI (got %r)",
+            name, converted,
+        )
+        return None
+    return converted
+
+def get_oai_formatted_tools(llm_api: llm.APIInstance, domains: list[str]) -> List[ChatCompletionTool]:
     result: List[ChatCompletionTool] = []
 
     # sort tools by name to improve cache hits
     for tool in sorted(llm_api.tools, key=lambda t: t.name):
         # when combining with home assistant llm APIs, it adds a prefix to differentiate tools; compare against the suffix here
         if tool.name.endswith(SERVICE_TOOL_NAME):
-            result.extend([{
-                "type": "function",
-                "function": {
-                    "name": tool["name"],
-                    "description": f"Call the Home Assistant service '{tool['name']}'",
-                    "parameters": convert_to_openapi(tool["arguments"], custom_serializer=llm_api.custom_serializer),
-                    "strict": True,
-                }
-            } for tool in get_home_llm_tools(llm_api, domains) ])
+            for tool in get_home_llm_tools(llm_api, domains):
+                parameters = _convert_tool_parameters(tool["name"], tool["arguments"], llm_api.custom_serializer)
+                if parameters is None:
+                    continue
+                result.append({
+                    "type": "function",
+                    "function": {
+                        "name": tool["name"],
+                        "description": f"Call the Home Assistant service '{tool['name']}'",
+                        "parameters": parameters,
+                        "strict": True,
+                    }
+                })
         else:
+            parameters = _convert_tool_parameters(tool.name, tool.parameters, llm_api.custom_serializer)
+            if parameters is None:
+                continue
             result.append({
                 "type": "function",
                 "function": {
                     "name": tool.name,
                     "description": tool.description or "",
-                    "parameters": convert_to_openapi(tool.parameters, custom_serializer=llm_api.custom_serializer),
+                    "parameters": parameters,
                     "strict": True,
                 }
             })
