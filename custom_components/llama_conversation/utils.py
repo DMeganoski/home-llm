@@ -95,14 +95,19 @@ def closest_color(requested_color: tuple[int, int, int]) -> str:
 def flatten_vol_schema(schema):
     flattened = []
     def _flatten(current_schema, prefix=''):
+        # Composite validators (vol.Any/vol.All/etc.) all expose a `.validators`
+        # list. We duck-type on that instead of isinstance-checking the private
+        # vol.validators._WithSubValidators class, since compatibility shims
+        # (e.g. probatio's voluptuous shim on newer HA versions) don't always
+        # replicate voluptuous's internal, underscore-prefixed API surface.
         if isinstance(current_schema, vol.Schema):
-            if isinstance(current_schema.schema, vol.validators._WithSubValidators):
+            if hasattr(current_schema.schema, 'validators'):
                 for subval in current_schema.schema.validators:
                     _flatten(subval, prefix)
             elif isinstance(current_schema.schema, dict):
                 for key, val in current_schema.schema.items():
                     _flatten(val, prefix + str(key) + '/')
-        elif isinstance(current_schema, vol.validators._WithSubValidators):
+        elif hasattr(current_schema, 'validators'):
             for subval in current_schema.validators:
                 _flatten(subval, prefix)
         elif callable(current_schema):
