@@ -84,9 +84,22 @@ ICL_EXTRAS = """
 {{ item.response }}
 {{ tool_call_prefix }}{{ item.tool | to_json }}{{ tool_call_suffix }}
 {% endfor %}"""
+# Structured form of the follow-up-conversation few-shot examples, shared by
+# both delivery paths: rendered as prose into FOLLOW_UP_CONVERSATION_EXTRAS
+# below when CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE is True, or turned
+# into real message-array turns by get_follow_up_example_messages() in
+# utils.py when it's False. Keep both in sync if these examples change.
+FOLLOW_UP_CONVERSATION_EXAMPLES = [
+    {"user": "turn on a light", "assistant": "Which light would you like me to turn on?", "continue_conversation": True},
+    {"user": "turn on the office light", "assistant": "The office light is now on.", "continue_conversation": False},
+    {"user": "read me the grocery list", "assistant": "Your grocery list includes eggs and milk. Would you like to add anything else to it?", "continue_conversation": True},
+    {"user": "add bread", "assistant": "Added bread to the list. Anything else?", "continue_conversation": True},
+    {"user": "no thanks", "assistant": "Okay, let me know if you need anything else.", "continue_conversation": False},
+]
 FOLLOW_UP_CONVERSATION_EXTRAS = """
 {%- if enable_follow_up_conversation %}
 Most responses fully resolve the request and need no follow-up at all - this is not an instruction to always ask a follow-up question. Only when a follow-up genuinely makes sense (for example, you asked the user a clarifying question, or you are waiting on more information to complete their request), end your entire response with the exact text {{ continue_conversation_marker }} on its own line, and never include it otherwise.
+{%- if send_follow_up_examples_as_system_message %}
 
 For example:
 user: turn on a light
@@ -106,6 +119,7 @@ assistant: Added bread to the list. Anything else?
 
 user: no thanks
 assistant: Okay, let me know if you need anything else.
+{%- endif %}
 {%- endif %}"""
 NO_SYSTEM_PROMPT_EXTRAS = """
 <user_instruction>:"""
@@ -202,6 +216,14 @@ CONF_ENABLE_FOLLOW_UP_CONVERSATION = "enable_follow_up_conversation"
 DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION = False
 CONF_CONTINUE_CONVERSATION_MARKER = "continue_conversation_marker"
 DEFAULT_CONTINUE_CONVERSATION_MARKER = "[CONTINUE]"
+# When True (the original/default behavior), the follow-up examples below are
+# rendered as prose inside the system prompt. When False, they're sent as
+# actual user/assistant message turns instead - chat-tuned models generalize
+# a demonstrated pattern more reliably from real message-turn precedent than
+# from the same examples described in a system-prompt paragraph. See
+# get_follow_up_example_messages() in utils.py.
+CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE = "send_follow_up_examples_as_system_message"
+DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE = True
 CONF_MAX_TOOL_CALL_ITERATIONS = "max_tool_call_iterations"
 DEFAULT_MAX_TOOL_CALL_ITERATIONS = 3
 CONF_PROMPT_CACHING_ENABLED = "prompt_caching"
