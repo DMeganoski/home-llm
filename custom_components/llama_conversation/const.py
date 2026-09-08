@@ -95,6 +95,7 @@ FOLLOW_UP_CONVERSATION_EXAMPLES = [
     {"user": "read me the grocery list", "assistant": "Your grocery list includes eggs and milk. Would you like to add anything else to it?", "continue_conversation": True},
     {"user": "add bread", "assistant": "Added bread to the list. Anything else?", "continue_conversation": True},
     {"user": "no thanks", "assistant": "Okay, let me know if you need anything else.", "continue_conversation": False},
+    {"user": "never mind", "assistant": "No problem. Is there anything else I can help with?", "continue_conversation": True},
 ]
 FOLLOW_UP_CONVERSATION_EXTRAS = """
 {%- if enable_follow_up_conversation %}
@@ -119,6 +120,10 @@ assistant: Added bread to the list. Anything else?
 
 user: no thanks
 assistant: Okay, let me know if you need anything else.
+
+user: never mind
+assistant: No problem. Is there anything else I can help with?
+{{ continue_conversation_marker }}
 {%- endif %}
 {%- endif %}"""
 NO_SYSTEM_PROMPT_EXTRAS = """
