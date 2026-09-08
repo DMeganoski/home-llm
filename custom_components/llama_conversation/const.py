@@ -106,6 +106,10 @@ assistant: Added bread to the list. Anything else?
 
 user: no thanks
 assistant: Okay, let me know if you need anything else.
+
+user: never mind
+assistant: No problem. Is there anything else I can help with?
+{{ continue_conversation_marker }}
 {%- endif %}"""
 NO_SYSTEM_PROMPT_EXTRAS = """
 <user_instruction>:"""
