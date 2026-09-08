@@ -18,7 +18,7 @@ from homeassistant.exceptions import ConfigEntryError, HomeAssistantError
 from homeassistant.helpers import llm
 from homeassistant.helpers.event import async_track_state_change, async_call_later
 
-from custom_components.llama_conversation.utils import LlamaCppPythonInstallError, install_llama_cpp_python, validate_llama_cpp_python_installation, get_oai_formatted_messages, get_oai_formatted_tools
+from custom_components.llama_conversation.utils import LlamaCppPythonInstallError, install_llama_cpp_python, validate_llama_cpp_python_installation, get_oai_formatted_messages, get_oai_formatted_tools, splice_in_follow_up_examples
 from custom_components.llama_conversation.const import (
     CONF_ENABLE_LEGACY_TOOL_CALLING,
     CONF_TOOL_RESPONSE_AS_STRING,
@@ -393,6 +393,13 @@ class LlamaCppClient(LocalLLMClient):
                 conversation.SystemContent(content=system_prompt),
                 conversation.UserContent(content="")
             ])
+            # Include the follow-up examples here too (even though this
+            # priming call's output is discarded) - this is populating the
+            # KV cache with what's expected to be a shared prefix of the
+            # real request, so it needs to actually match that prefix
+            # (system message + follow-up examples, when the latter are
+            # sent as message turns) or the cache prime doesn't help.
+            messages = splice_in_follow_up_examples(messages, entity_options)
             tools = None
             if llm_api:
                 tools = get_oai_formatted_tools(llm_api, self._async_get_all_exposed_domains())
@@ -468,6 +475,7 @@ class LlamaCppClient(LocalLLMClient):
         _LOGGER.debug(f"Options: {entity_options}")
 
         messages = get_oai_formatted_messages(conversation, tool_result_to_str=tool_response_as_string)
+        messages = splice_in_follow_up_examples(messages, entity_options)
         tools = None
         if llm_api and not enable_legacy_tool_calling:
             tools = get_oai_formatted_tools(llm_api, self._async_get_all_exposed_domains())
@@ -554,6 +562,7 @@ class LlamaCppClient(LocalLLMClient):
         _LOGGER.debug(f"Options: {entity_options}")
 
         messages = get_oai_formatted_messages(conversation, tool_result_to_str=tool_response_as_string)
+        messages = splice_in_follow_up_examples(messages, entity_options)
         tools = None
         if llm_api and not enable_legacy_tool_calling:
             tools = get_oai_formatted_tools(llm_api, self._async_get_all_exposed_domains())

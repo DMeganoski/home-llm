@@ -13,7 +13,7 @@ from homeassistant.const import CONF_HOST, CONF_PORT, CONF_SSL
 from homeassistant.helpers import llm
 from openai import AsyncOpenAI, OpenAIError
 
-from custom_components.llama_conversation.utils import format_url, get_oai_formatted_messages, get_oai_formatted_tools
+from custom_components.llama_conversation.utils import format_url, get_oai_formatted_messages, get_oai_formatted_tools, splice_in_follow_up_examples
 from custom_components.llama_conversation.const import (
     CONF_CHAT_MODEL,
     CONF_MAX_TOKENS,
@@ -115,6 +115,7 @@ class GenericOpenAIAPIClient(LocalLLMClient):
 
         _, additional_params = self._chat_completion_params(entity_options)
         messages = get_oai_formatted_messages(conversation, user_content_as_list=True, tool_result_to_str=tool_response_as_string)
+        messages = splice_in_follow_up_examples(messages, entity_options)
 
         use_server_sampling_defaults = entity_options.get(CONF_USE_SERVER_SAMPLING_DEFAULTS, DEFAULT_USE_SERVER_SAMPLING_DEFAULTS)
         request_params = {
@@ -180,6 +181,7 @@ class GenericOpenAIAPIClient(LocalLLMClient):
 
         endpoint, additional_params = self._chat_completion_params(entity_options)
         messages = get_oai_formatted_messages(conversation, user_content_as_list=True, tool_result_to_str=tool_response_as_string)
+        messages = splice_in_follow_up_examples(messages, entity_options)
 
         use_server_sampling_defaults = entity_options.get(CONF_USE_SERVER_SAMPLING_DEFAULTS, DEFAULT_USE_SERVER_SAMPLING_DEFAULTS)
         request_params: Dict[str, Any] = {

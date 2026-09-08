@@ -85,6 +85,7 @@ from .const import (
     CONF_REMEMBER_CONVERSATION_TIME_MINUTES,
     CONF_ENABLE_FOLLOW_UP_CONVERSATION,
     CONF_CONTINUE_CONVERSATION_MARKER,
+    CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
     CONF_MAX_TOOL_CALL_ITERATIONS,
     CONF_PROMPT_CACHING_ENABLED,
     CONF_PROMPT_CACHING_INTERVAL,
@@ -140,6 +141,7 @@ from .const import (
     DEFAULT_REMEMBER_NUM_INTERACTIONS,
     DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION,
     DEFAULT_CONTINUE_CONVERSATION_MARKER,
+    DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
     DEFAULT_MAX_TOOL_CALL_ITERATIONS,
     DEFAULT_PROMPT_CACHING_ENABLED,
     DEFAULT_PROMPT_CACHING_INTERVAL,
@@ -723,6 +725,11 @@ def local_llama_config_option_schema(
                 description={"suggested_value": options.get(CONF_PROMPT, default_prompt)},
                 default=options.get(CONF_PROMPT, default_prompt),
             ): TemplateSelector(),
+            vol.Optional(
+                CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
+                description={"suggested_value": options.get(CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE, DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE)},
+                default=options.get(CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE, DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE),
+            ): BooleanSelector(BooleanSelectorConfig()),
             vol.Required(
                 CONF_USE_IN_CONTEXT_LEARNING_EXAMPLES,
                 description={"suggested_value": options.get(CONF_USE_IN_CONTEXT_LEARNING_EXAMPLES)},
@@ -1056,6 +1063,7 @@ def local_llama_config_option_schema(
         # general
         CONF_LLM_HASS_API,
         CONF_PROMPT,
+        CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
         CONF_AI_TASK_EXTRACTION_METHOD,
         CONF_AI_TASK_RETRIES,
         CONF_CONTEXT_LENGTH,

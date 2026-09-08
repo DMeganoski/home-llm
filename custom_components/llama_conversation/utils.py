@@ -36,6 +36,13 @@ from .const import (
     SERVICE_TOOL_ALLOWED_SERVICES,
     SERVICE_TOOL_ALLOWED_DOMAINS,
     SERVICE_TOOL_NAME,
+    CONF_ENABLE_FOLLOW_UP_CONVERSATION,
+    DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION,
+    CONF_CONTINUE_CONVERSATION_MARKER,
+    DEFAULT_CONTINUE_CONVERSATION_MARKER,
+    CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
+    DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
+    FOLLOW_UP_CONVERSATION_EXAMPLES,
 )
 
 from typing import TYPE_CHECKING
@@ -495,6 +502,53 @@ def get_oai_formatted_messages(
             })
 
     return messages
+
+def get_follow_up_example_messages(entity_options: Dict[str, Any]) -> List[ChatCompletionRequestMessage]:
+    """Build the follow-up-conversation few-shot examples as real user/assistant
+    message turns.
+
+    Normally (CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE, default True)
+    these examples are rendered as prose inside the system prompt - see
+    FOLLOW_UP_CONVERSATION_EXTRAS in const.py. When that option is disabled,
+    this returns the same examples as actual message-array turns instead, to
+    be spliced in right after the system message and before the real
+    conversation history. Chat-tuned models generalize a demonstrated pattern
+    more reliably from real message-turn precedent than from the same
+    examples described in a system-prompt paragraph, which is the whole
+    point of the option - see its definition in const.py.
+
+    Returns an empty list whenever there's nothing to add (follow-up
+    conversation disabled, or the system-message path is selected), so
+    callers can unconditionally splice the result in without an extra guard.
+    """
+    if not entity_options.get(CONF_ENABLE_FOLLOW_UP_CONVERSATION, DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION):
+        return []
+    if entity_options.get(CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE, DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE):
+        return []
+
+    marker = entity_options.get(CONF_CONTINUE_CONVERSATION_MARKER, DEFAULT_CONTINUE_CONVERSATION_MARKER)
+    messages: List[ChatCompletionRequestMessage] = []
+    for example in FOLLOW_UP_CONVERSATION_EXAMPLES:
+        assistant_content = example["assistant"]
+        if example["continue_conversation"]:
+            assistant_content = f"{assistant_content}\n{marker}"
+        messages.append({"role": "user", "content": example["user"]})
+        messages.append({"role": "assistant", "content": assistant_content})
+    return messages
+
+def splice_in_follow_up_examples(
+        messages: List[ChatCompletionRequestMessage],
+        entity_options: Dict[str, Any],
+    ) -> List[ChatCompletionRequestMessage]:
+    """Insert the follow-up example turns (if any) right after the system
+    message and before the rest of the conversation. `messages` is expected
+    to start with the system message, as produced by
+    get_oai_formatted_messages(); a no-op (returns `messages` unchanged) when
+    there's nothing to insert."""
+    examples = get_follow_up_example_messages(entity_options)
+    if not examples:
+        return messages
+    return messages[:1] + examples + messages[1:]
 
 def get_home_llm_tools(llm_api: llm.APIInstance, domains: list[str]) -> List[Dict[str, Any]]:
     service_dict = llm_api.api.hass.services.async_services()
