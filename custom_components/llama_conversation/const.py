@@ -84,32 +84,27 @@ ICL_EXTRAS = """
 {{ item.response }}
 {{ tool_call_prefix }}{{ item.tool | to_json }}{{ tool_call_suffix }}
 {% endfor %}"""
+# Examples are data, not prompt text - loaded from a CSV file (see
+# CONF_FOLLOW_UP_EXAMPLES_FILE, default follow_up_examples.csv, same pattern
+# as CONF_IN_CONTEXT_EXAMPLES_FILE for tool-call examples) into
+# follow_up_examples below, rather than hardcoded here. Keeps the template
+# itself uncluttered and lets examples be edited/extended without touching
+# code.
 FOLLOW_UP_CONVERSATION_EXTRAS = """
 {%- if enable_follow_up_conversation %}
 Most responses fully resolve the request and need no follow-up at all - this is not an instruction to always ask a follow-up question. Only when a follow-up genuinely makes sense (for example, you asked the user a clarifying question, or you are waiting on more information to complete their request), end your entire response with the exact text {{ continue_conversation_marker }} on its own line, and never include it otherwise.
+{%- if follow_up_examples %}
 
 For example:
-user: turn on a light
-assistant: Which light would you like me to turn on?
+{%- for example in follow_up_examples %}
+
+user: {{ example.request }}
+assistant: {{ example.response }}
+{%- if example.continue_conversation %}
 {{ continue_conversation_marker }}
-
-user: turn on the office light
-assistant: The office light is now on.
-
-user: read me the grocery list
-assistant: Your grocery list includes eggs and milk. Would you like to add anything else to it?
-{{ continue_conversation_marker }}
-
-user: add bread
-assistant: Added bread to the list. Anything else?
-{{ continue_conversation_marker }}
-
-user: no thanks
-assistant: Okay, let me know if you need anything else.
-
-user: never mind
-assistant: No problem. Is there anything else I can help with?
-{{ continue_conversation_marker }}
+{%- endif %}
+{%- endfor %}
+{%- endif %}
 {%- endif %}"""
 NO_SYSTEM_PROMPT_EXTRAS = """
 <user_instruction>:"""
@@ -204,6 +199,8 @@ CONF_REMEMBER_CONVERSATION_TIME_MINUTES = "remember_conversation_time_minutes"
 DEFAULT_REMEMBER_CONVERSATION_TIME_MINUTES = 2
 CONF_ENABLE_FOLLOW_UP_CONVERSATION = "enable_follow_up_conversation"
 DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION = False
+CONF_FOLLOW_UP_EXAMPLES_FILE = "follow_up_examples_file"
+DEFAULT_FOLLOW_UP_EXAMPLES_FILE = "follow_up_examples.csv"
 CONF_CONTINUE_CONVERSATION_MARKER = "continue_conversation_marker"
 DEFAULT_CONTINUE_CONVERSATION_MARKER = "[CONTINUE]"
 CONF_MAX_TOOL_CALL_ITERATIONS = "max_tool_call_iterations"

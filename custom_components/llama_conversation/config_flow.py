@@ -84,6 +84,7 @@ from .const import (
     CONF_REMEMBER_NUM_INTERACTIONS,
     CONF_REMEMBER_CONVERSATION_TIME_MINUTES,
     CONF_ENABLE_FOLLOW_UP_CONVERSATION,
+    CONF_FOLLOW_UP_EXAMPLES_FILE,
     CONF_CONTINUE_CONVERSATION_MARKER,
     CONF_MAX_TOOL_CALL_ITERATIONS,
     CONF_PROMPT_CACHING_ENABLED,
@@ -139,6 +140,7 @@ from .const import (
     DEFAULT_REMEMBER_CONVERSATION,
     DEFAULT_REMEMBER_NUM_INTERACTIONS,
     DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION,
+    DEFAULT_FOLLOW_UP_EXAMPLES_FILE,
     DEFAULT_CONTINUE_CONVERSATION_MARKER,
     DEFAULT_MAX_TOOL_CALL_ITERATIONS,
     DEFAULT_PROMPT_CACHING_ENABLED,
@@ -785,6 +787,18 @@ def local_llama_config_option_schema(
             ): int,
         })
 
+        # Only shown once follow-up conversation is already enabled (based on
+        # the currently saved option - like other conditional fields in this
+        # schema, it appears the next time the options are opened after
+        # saving the toggle on, not live within the same form). No reason to
+        # ask which examples file to use for a feature that's off.
+        if options.get(CONF_ENABLE_FOLLOW_UP_CONVERSATION, DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION):
+            result[vol.Optional(
+                CONF_FOLLOW_UP_EXAMPLES_FILE,
+                description={"suggested_value": options.get(CONF_FOLLOW_UP_EXAMPLES_FILE, DEFAULT_FOLLOW_UP_EXAMPLES_FILE)},
+                default=DEFAULT_FOLLOW_UP_EXAMPLES_FILE,
+            )] = str
+
     if backend_type == BACKEND_TYPE_LLAMA_CPP:
         if subentry_type == conversation.DOMAIN:
             result.update({
@@ -1085,6 +1099,7 @@ def local_llama_config_option_schema(
         CONF_REMEMBER_NUM_INTERACTIONS,
         CONF_REMEMBER_CONVERSATION_TIME_MINUTES,
         CONF_ENABLE_FOLLOW_UP_CONVERSATION,
+        CONF_FOLLOW_UP_EXAMPLES_FILE,
         CONF_CONTINUE_CONVERSATION_MARKER,
         CONF_PROMPT_CACHING_ENABLED,
         CONF_PROMPT_CACHING_INTERVAL,
