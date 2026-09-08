@@ -399,7 +399,7 @@ class LlamaCppClient(LocalLLMClient):
             # real request, so it needs to actually match that prefix
             # (system message + follow-up examples, when the latter are
             # sent as message turns) or the cache prime doesn't help.
-            messages = splice_in_follow_up_examples(messages, entity_options)
+            messages = splice_in_follow_up_examples(messages, entity_options, self.follow_up_examples)
             tools = None
             if llm_api:
                 tools = get_oai_formatted_tools(llm_api, self._async_get_all_exposed_domains())
@@ -475,7 +475,7 @@ class LlamaCppClient(LocalLLMClient):
         _LOGGER.debug(f"Options: {entity_options}")
 
         messages = get_oai_formatted_messages(conversation, tool_result_to_str=tool_response_as_string)
-        messages = splice_in_follow_up_examples(messages, entity_options)
+        messages = splice_in_follow_up_examples(messages, entity_options, self.follow_up_examples)
         tools = None
         if llm_api and not enable_legacy_tool_calling:
             tools = get_oai_formatted_tools(llm_api, self._async_get_all_exposed_domains())
@@ -562,7 +562,7 @@ class LlamaCppClient(LocalLLMClient):
         _LOGGER.debug(f"Options: {entity_options}")
 
         messages = get_oai_formatted_messages(conversation, tool_result_to_str=tool_response_as_string)
-        messages = splice_in_follow_up_examples(messages, entity_options)
+        messages = splice_in_follow_up_examples(messages, entity_options, self.follow_up_examples)
         tools = None
         if llm_api and not enable_legacy_tool_calling:
             tools = get_oai_formatted_tools(llm_api, self._async_get_all_exposed_domains())

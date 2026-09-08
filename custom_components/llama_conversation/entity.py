@@ -34,9 +34,11 @@ from .const import (
     CONF_ENABLE_LEGACY_TOOL_CALLING,
     CONF_ENABLE_STREAMING,
     CONF_ENABLE_FOLLOW_UP_CONVERSATION,
+    CONF_FOLLOW_UP_EXAMPLES_FILE,
     CONF_CONTINUE_CONVERSATION_MARKER,
     CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
     DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION,
+    DEFAULT_FOLLOW_UP_EXAMPLES_FILE,
     DEFAULT_CONTINUE_CONVERSATION_MARKER,
     DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
     DEFAULT_EXTRA_ATTRIBUTES_TO_EXPOSE,
@@ -78,6 +80,7 @@ class LocalLLMClient:
 
     hass: HomeAssistant
     in_context_examples: Optional[List[Dict[str, str]]]
+    follow_up_examples: Optional[List[Dict[str, Any]]]
 
     def __init__(self, hass: HomeAssistant, client_options: dict[str, Any]) -> None:
         self.hass = hass
@@ -87,6 +90,12 @@ class LocalLLMClient:
             icl_examples_filename = client_options.get(CONF_IN_CONTEXT_EXAMPLES_FILE, DEFAULT_IN_CONTEXT_EXAMPLES_FILE)
             if icl_examples_filename:
                 self._load_icl_examples(icl_examples_filename)
+
+        self.follow_up_examples = None
+        if client_options.get(CONF_ENABLE_FOLLOW_UP_CONVERSATION, DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION):
+            follow_up_examples_filename = client_options.get(CONF_FOLLOW_UP_EXAMPLES_FILE, DEFAULT_FOLLOW_UP_EXAMPLES_FILE)
+            if follow_up_examples_filename:
+                self._load_follow_up_examples(follow_up_examples_filename)
 
     @staticmethod
     def get_name(client_options: dict[str, Any]):
@@ -111,7 +120,38 @@ class LocalLLMClient:
         except Exception:
             _LOGGER.exception("Failed to load in context learning examples!")
             self.in_context_examples = None
-    
+
+    def _load_follow_up_examples(self, filename: str):
+        """Load the follow-up-conversation few-shot examples (request/response/
+        continue_conversation) from a CSV file - same idea as _load_icl_examples,
+        just for the follow-up marker examples instead of tool-call examples."""
+        try:
+            examples_filename = os.path.join(os.path.dirname(__file__), filename)
+
+            with open(examples_filename, encoding="utf-8-sig") as f:
+                rows = list(csv.DictReader(f))
+
+                if rows and set(rows[0].keys()) != set(["request", "response", "continue_conversation"]):
+                    raise Exception("Follow-up examples csv file did not have the expected columns: request, response, continue_conversation")
+
+            self.follow_up_examples = [
+                {
+                    "request": row["request"],
+                    "response": row["response"],
+                    "continue_conversation": row["continue_conversation"].strip().lower() in ("true", "1", "yes"),
+                }
+                for row in rows
+            ]
+
+            if len(self.follow_up_examples) == 0:
+                _LOGGER.warning(f"There were no follow-up conversation examples found in the file '{filename}'!")
+                self.follow_up_examples = None
+            else:
+                _LOGGER.debug(f"Loaded {len(self.follow_up_examples)} follow-up conversation examples")
+        except Exception:
+            _LOGGER.exception("Failed to load follow-up conversation examples!")
+            self.follow_up_examples = None
+
     def _update_options(self, entity_options: Dict[str, Any]):
         if entity_options.get(CONF_LLM_HASS_API):
             self._attr_supported_features = (
@@ -122,6 +162,11 @@ class LocalLLMClient:
             self._load_icl_examples(entity_options.get(CONF_IN_CONTEXT_EXAMPLES_FILE, DEFAULT_IN_CONTEXT_EXAMPLES_FILE))
         else:
             self.in_context_examples = None
+
+        if entity_options.get(CONF_ENABLE_FOLLOW_UP_CONVERSATION, DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION):
+            self._load_follow_up_examples(entity_options.get(CONF_FOLLOW_UP_EXAMPLES_FILE, DEFAULT_FOLLOW_UP_EXAMPLES_FILE))
+        else:
+            self.follow_up_examples = None
 
     @staticmethod
     async def async_validate_connection(hass: HomeAssistant, user_input: Dict[str, Any]) -> str | None:
@@ -626,6 +671,7 @@ class LocalLLMClient:
             "enable_follow_up_conversation": entity_options.get(CONF_ENABLE_FOLLOW_UP_CONVERSATION, DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION),
             "continue_conversation_marker": entity_options.get(CONF_CONTINUE_CONVERSATION_MARKER, DEFAULT_CONTINUE_CONVERSATION_MARKER),
             "send_follow_up_examples_as_system_message": entity_options.get(CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE, DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE),
+            "follow_up_examples": self.follow_up_examples or [],
         }
 
         if llm_api:

@@ -84,46 +84,29 @@ ICL_EXTRAS = """
 {{ item.response }}
 {{ tool_call_prefix }}{{ item.tool | to_json }}{{ tool_call_suffix }}
 {% endfor %}"""
-# Structured form of the follow-up-conversation few-shot examples, shared by
-# both delivery paths: rendered as prose into FOLLOW_UP_CONVERSATION_EXTRAS
-# below when CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE is True, or turned
-# into real message-array turns by get_follow_up_example_messages() in
-# utils.py when it's False. Keep both in sync if these examples change.
-FOLLOW_UP_CONVERSATION_EXAMPLES = [
-    {"user": "turn on a light", "assistant": "Which light would you like me to turn on?", "continue_conversation": True},
-    {"user": "turn on the office light", "assistant": "The office light is now on.", "continue_conversation": False},
-    {"user": "read me the grocery list", "assistant": "Your grocery list includes eggs and milk. Would you like to add anything else to it?", "continue_conversation": True},
-    {"user": "add bread", "assistant": "Added bread to the list. Anything else?", "continue_conversation": True},
-    {"user": "no thanks", "assistant": "Okay, let me know if you need anything else.", "continue_conversation": False},
-    {"user": "never mind", "assistant": "No problem. Is there anything else I can help with?", "continue_conversation": True},
-]
+# Examples are data, not prompt text - loaded from a CSV file (see
+# CONF_FOLLOW_UP_EXAMPLES_FILE, default follow_up_examples.csv, same pattern
+# as CONF_IN_CONTEXT_EXAMPLES_FILE for tool-call examples) into
+# follow_up_examples below, rather than hardcoded here. Keeps the template
+# itself uncluttered and lets examples be edited/extended without touching
+# code. The same loaded list feeds get_follow_up_example_messages() in
+# utils.py for the send-as-real-message-turns delivery path (see
+# CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE) - one source of examples,
+# two ways of delivering them.
 FOLLOW_UP_CONVERSATION_EXTRAS = """
 {%- if enable_follow_up_conversation %}
 Most responses fully resolve the request and need no follow-up at all - this is not an instruction to always ask a follow-up question. Only when a follow-up genuinely makes sense (for example, you asked the user a clarifying question, or you are waiting on more information to complete their request), end your entire response with the exact text {{ continue_conversation_marker }} on its own line, and never include it otherwise.
-{%- if send_follow_up_examples_as_system_message %}
+{%- if send_follow_up_examples_as_system_message and follow_up_examples %}
 
 For example:
-user: turn on a light
-assistant: Which light would you like me to turn on?
+{%- for example in follow_up_examples %}
+
+user: {{ example.request }}
+assistant: {{ example.response }}
+{%- if example.continue_conversation %}
 {{ continue_conversation_marker }}
-
-user: turn on the office light
-assistant: The office light is now on.
-
-user: read me the grocery list
-assistant: Your grocery list includes eggs and milk. Would you like to add anything else to it?
-{{ continue_conversation_marker }}
-
-user: add bread
-assistant: Added bread to the list. Anything else?
-{{ continue_conversation_marker }}
-
-user: no thanks
-assistant: Okay, let me know if you need anything else.
-
-user: never mind
-assistant: No problem. Is there anything else I can help with?
-{{ continue_conversation_marker }}
+{%- endif %}
+{%- endfor %}
 {%- endif %}
 {%- endif %}"""
 NO_SYSTEM_PROMPT_EXTRAS = """
@@ -219,6 +202,8 @@ CONF_REMEMBER_CONVERSATION_TIME_MINUTES = "remember_conversation_time_minutes"
 DEFAULT_REMEMBER_CONVERSATION_TIME_MINUTES = 2
 CONF_ENABLE_FOLLOW_UP_CONVERSATION = "enable_follow_up_conversation"
 DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION = False
+CONF_FOLLOW_UP_EXAMPLES_FILE = "follow_up_examples_file"
+DEFAULT_FOLLOW_UP_EXAMPLES_FILE = "follow_up_examples.csv"
 CONF_CONTINUE_CONVERSATION_MARKER = "continue_conversation_marker"
 DEFAULT_CONTINUE_CONVERSATION_MARKER = "[CONTINUE]"
 # When True (the original/default behavior), the follow-up examples below are

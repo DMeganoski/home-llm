@@ -115,7 +115,7 @@ class GenericOpenAIAPIClient(LocalLLMClient):
 
         _, additional_params = self._chat_completion_params(entity_options)
         messages = get_oai_formatted_messages(conversation, user_content_as_list=True, tool_result_to_str=tool_response_as_string)
-        messages = splice_in_follow_up_examples(messages, entity_options)
+        messages = splice_in_follow_up_examples(messages, entity_options, self.follow_up_examples)
 
         use_server_sampling_defaults = entity_options.get(CONF_USE_SERVER_SAMPLING_DEFAULTS, DEFAULT_USE_SERVER_SAMPLING_DEFAULTS)
         request_params = {
@@ -181,7 +181,7 @@ class GenericOpenAIAPIClient(LocalLLMClient):
 
         endpoint, additional_params = self._chat_completion_params(entity_options)
         messages = get_oai_formatted_messages(conversation, user_content_as_list=True, tool_result_to_str=tool_response_as_string)
-        messages = splice_in_follow_up_examples(messages, entity_options)
+        messages = splice_in_follow_up_examples(messages, entity_options, self.follow_up_examples)
 
         use_server_sampling_defaults = entity_options.get(CONF_USE_SERVER_SAMPLING_DEFAULTS, DEFAULT_USE_SERVER_SAMPLING_DEFAULTS)
         request_params: Dict[str, Any] = {
