@@ -7,11 +7,6 @@ from typing import Any
 
 import voluptuous as vol
 
-try: # HA < 2026.9
-    from voluptuous_openapi import convert as convert_to_openapi
-except ModuleNotFoundError: # HA >= 2026.9
-    from probatio import to_openapi as convert_to_openapi
-
 from homeassistant.helpers import llm
 from homeassistant.components import ai_task, conversation
 from homeassistant.config_entries import ConfigEntry
@@ -21,6 +16,7 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from homeassistant.util.json import json_loads, JSON_DECODE_EXCEPTIONS
 
 from .entity import LocalLLMEntity, LocalLLMClient
+from .utils import convert_schema_to_openapi
 from .const import (
     CONF_PROMPT,
     CONF_RESPONSE_JSON_SCHEMA,
@@ -216,7 +212,7 @@ class LocalLLMTaskEntity(
         if task.structure: # set up extraction method specifics
             if extraction_method == ResultExtractionMethod.STRUCTURED_OUTPUT:
                 _LOGGER.debug("Using structure for AI Task '%s': %s", task.name, task.structure)
-                entity_options[CONF_RESPONSE_JSON_SCHEMA] = convert_to_openapi(task.structure, custom_serializer=llm.selector_serializer)
+                entity_options[CONF_RESPONSE_JSON_SCHEMA] = convert_schema_to_openapi(task.structure, llm.selector_serializer, log_label=f"AI Task '{task.name}' structure")
             elif extraction_method == ResultExtractionMethod.TOOL:
                 chat_log.llm_api = await SubmitResponseAPI(self.hass, [SubmitResponseTool(task.structure)]).async_get_api_instance(
                     llm.LLMContext(DOMAIN, context=None, language=None, assistant=None, device_id=None)

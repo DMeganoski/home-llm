@@ -12,11 +12,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import llm, json as ha_json
 
-try: # HA < 2026.9
-    from voluptuous_openapi import convert as convert_to_openapi
-except ModuleNotFoundError: # HA >= 2026.9
-    from probatio import to_openapi as convert_to_openapi
-
+from custom_components.llama_conversation.utils import convert_schema_to_openapi
 from custom_components.llama_conversation.const import (
     CONF_CHAT_MODEL,
     CONF_MAX_TOKENS,
@@ -144,7 +140,10 @@ def _convert_tools_to_anthropic_format(
     tools: List[Dict[str, Any]] = []
 
     for tool in sorted(llm_api.tools, key=lambda t: t.name):
-        schema = convert_to_openapi(tool.parameters, custom_serializer=llm_api.custom_serializer)
+        schema = convert_schema_to_openapi(tool.parameters, llm_api.custom_serializer, log_label=f"tool '{tool.name}'")
+        if not isinstance(schema, dict):
+            _LOGGER.warning("Skipping tool '%s': its parameters schema could not be converted to OpenAPI by any available converter", tool.name)
+            continue
         tools.append({
             "name": tool.name,
             "description": tool.description or "",

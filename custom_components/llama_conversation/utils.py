@@ -24,10 +24,27 @@ from homeassistant.requirements import pip_kwargs
 from homeassistant.util import color, package as package_util, json as ha_json
 from homeassistant.util.package import is_installed
 
-try: # HA < 2026.9
-    from voluptuous_openapi import convert as convert_to_openapi
-except ModuleNotFoundError: # HA >= 2026.9
-    from probatio import to_openapi as convert_to_openapi
+# Home Assistant's own internal voluptuous-derived schema objects changed
+# shape around HA 2026.9 (voluptuous_openapi -> probatio), and this
+# integration's manifest declares BOTH packages as unconditional
+# requirements so it installs cleanly either way. That means picking one at
+# import time via "whichever is importable" doesn't work as a version
+# switch - voluptuous_openapi is *always* importable since it's always
+# installed, so that branch always wins regardless of which one the running
+# HA version's schema objects actually match, silently producing UNSUPPORTED
+# for every single tool on the version that needed probatio instead. Import
+# both and try each at call time instead - see _convert_tool_parameters().
+_OPENAPI_CONVERTERS = []
+try:
+    from voluptuous_openapi import convert as _convert_voluptuous_openapi
+    _OPENAPI_CONVERTERS.append(_convert_voluptuous_openapi)
+except ModuleNotFoundError:
+    pass
+try:
+    from probatio import to_openapi as _convert_probatio
+    _OPENAPI_CONVERTERS.append(_convert_probatio)
+except ModuleNotFoundError:
+    pass
 
 from .const import (
     DOMAIN,
@@ -362,26 +379,61 @@ def install_llama_cpp_python(
 def format_url(*, hostname: str, port: str, ssl: bool, path: str):
     return f"{'https' if ssl else 'http'}://{hostname}{ ':' + port if port else ''}{path}"
 
-def _convert_tool_parameters(name: str, schema, custom_serializer) -> dict | None:
-    """Convert a tool's voluptuous schema to an OpenAPI parameters dict.
+def convert_schema_to_openapi(schema, custom_serializer, log_label: str = "schema") -> dict | Any:
+    """Try every available OpenAPI schema converter in turn (see
+    _OPENAPI_CONVERTERS above) and return the first dict result.
 
-    voluptuous_openapi (and probatio's compatibility shim) can legitimately
-    return their internal UNSUPPORTED sentinel for schema constructs they
-    can't represent, rather than a dict. That sentinel isn't itself a
+    voluptuous_openapi and probatio can each legitimately return their own
+    internal UNSUPPORTED sentinel for schema constructs they can't
+    represent, rather than a dict - that sentinel isn't itself a
     library-stable object we can import and compare against safely across
-    both backends, so we just check the shape of the result: a real
-    conversion is always a dict. Anything else means this tool can't be
-    exposed to the model, so we skip it instead of handing a broken
-    "parameters" value to the API client, which would raise deep inside
-    request validation with an error that doesn't point back to the tool
-    that caused it.
+    both, so callers should just check `isinstance(result, dict)` rather
+    than comparing against a specific sentinel value.
+
+    Which library actually succeeds depends on which one matches the
+    currently-running HA version's internal schema objects, not on anything
+    specific to a given schema - but trying every available converter per
+    call is cheap, and this way it just works regardless of which HA version
+    this happens to be running against, instead of committing to one converter
+    at import time (see _OPENAPI_CONVERTERS' own comment for why that broke).
+
+    If every converter fails, returns whatever the last one produced
+    (typically an UNSUPPORTED-shaped sentinel, or None if somehow neither
+    library is installed) - `log_label` is only used to make that failure's
+    debug/warning log lines identifiable, this function itself doesn't skip
+    or drop anything.
     """
-    converted = convert_to_openapi(schema, custom_serializer=custom_serializer)
+    result = None
+    for convert_to_openapi in _OPENAPI_CONVERTERS:
+        try:
+            result = convert_to_openapi(schema, custom_serializer=custom_serializer)
+        except Exception:
+            # A converter facing schema objects from the *other* library's
+            # class hierarchy might raise instead of returning UNSUPPORTED,
+            # depending on where it fails - either way that just means this
+            # converter isn't the right one for this schema, not that the
+            # schema itself is broken, so try the next converter.
+            _LOGGER.debug("Converter %s raised converting %s, trying next converter", convert_to_openapi.__module__, log_label, exc_info=True)
+            continue
+        if isinstance(result, dict):
+            return result
+
+    _LOGGER.debug(
+        "No available OpenAPI converter could convert %s (tried %s)",
+        log_label, [f.__module__ for f in _OPENAPI_CONVERTERS],
+    )
+    return result
+
+def _convert_tool_parameters(name: str, schema, custom_serializer) -> dict | None:
+    """Convert a tool's voluptuous schema to an OpenAPI parameters dict, or
+    None if no available converter could represent it - see
+    convert_schema_to_openapi(). Skipping here (rather than handing a broken
+    "parameters" value to the API client) avoids a failure deep inside
+    request validation that doesn't point back to the tool that caused it.
+    """
+    converted = convert_schema_to_openapi(schema, custom_serializer, log_label=f"tool '{name}'")
     if not isinstance(converted, dict):
-        _LOGGER.warning(
-            "Skipping tool '%s': its parameters schema could not be converted to OpenAPI (got %r)",
-            name, converted,
-        )
+        _LOGGER.warning("Skipping tool '%s': its parameters schema could not be converted to OpenAPI by any available converter", name)
         return None
     return converted
 
