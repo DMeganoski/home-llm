@@ -30,7 +30,7 @@
             }
         },
         "abort": {
-           "duplicate_client": "Cannot create duplicate model provider!"
+            "duplicate_client": "Cannot create duplicate model provider!"
         }
     },
     "config_subentries": {
@@ -112,7 +112,11 @@
                         "tool_call_suffix": "Tool Call Suffix",
                         "enable_legacy_tool_calling": "Enable Legacy Tool Calling",
                         "tool_response_as_string": "Tool Response as String",
-                        "max_tool_call_iterations": "Maximum Tool Call Attempts"
+                        "max_tool_call_iterations": "Maximum Tool Call Attempts",
+                        "enable_follow_up_conversation": "Enable Follow-up Conversation",
+                        "send_follow_up_examples_as_messages": "Send Follow-up Examples as Messages",
+                        "follow_up_examples_file": "Follow-up Examples CSV Filename",
+                        "continue_conversation_marker": "Continue Conversation Marker"
                     },
                     "data_description": {
                         "llm_hass_api": "Select 'Assist' if you want the model to be able to control devices. If you are using the Home-LLM (v1-3) model then select 'Home Assistant Services'",
@@ -125,7 +129,11 @@
                         "tool_response_as_string": "Some prompt templates expect the tool response to be provided as a JSON serialized string, rather than the raw object.",
                         "max_tool_call_iterations": "Set to 0 to generate the response and tool call in one attempt, without looping (use this for Home models v1-v3).",
                         "enable_streaming": "When enabled, responses are streamed token-by-token when the backend supports it.",
-                        "use_server_sampling_defaults": "**Recommended for most users.** Inference engines and model providers have gotten much better at shipping models with well-tuned sampling defaults. Omits temperature, top_p, top_k, min_p, and typical_p from requests so the server uses the values it knows are best for the loaded model. Only disable this if you are experiencing odd output behavior or intentionally want to run at a lower temperature."
+                        "use_server_sampling_defaults": "**Recommended for most users.** Inference engines and model providers have gotten much better at shipping models with well-tuned sampling defaults. Omits temperature, top_p, top_k, min_p, and typical_p from requests so the server uses the values it knows are best for the loaded model. Only disable this if you are experiencing odd output behavior or intentionally want to run at a lower temperature.",
+                        "enable_follow_up_conversation": "When enabled, the model can end a response with the marker below to keep listening for a reply without repeating the wake word.",
+                        "send_follow_up_examples_as_messages": "Send the follow-up examples below as real conversation turns instead of describing them in the system prompt. Chat-tuned models tend to generalize the pattern more reliably this way.",
+                        "follow_up_examples_file": "CSV file (relative to this integration's folder) providing the follow-up examples: columns request, response, continue_conversation.",
+                        "continue_conversation_marker": "The exact text the model appends to a response when it wants to keep listening without the wake word."
                     },
                     "description": "Please configure the model according to how it should be prompted. There are many different options and selecting the correct ones for your model is essential to getting optimal performance. See [here](https://github.com/acon96/home-llm/blob/develop/docs/Backend%20Configuration.md) for more information about the options on this page.\n\n**Some defaults may have been chosen for you based on the name of the selected model name or filename.** If you renamed a file or are using a fine-tuning of a supported model, then the defaults may not have been detected.",
                     "title": "Configure the selected model"
@@ -173,7 +181,11 @@
                         "tool_call_suffix": "Tool Call Suffix",
                         "enable_legacy_tool_calling": "Enable Legacy Tool Calling",
                         "tool_response_as_string": "Tool Response as String",
-                        "max_tool_call_iterations": "Maximum Tool Call Attempts"
+                        "max_tool_call_iterations": "Maximum Tool Call Attempts",
+                        "enable_follow_up_conversation": "Enable Follow-up Conversation",
+                        "send_follow_up_examples_as_messages": "Send Follow-up Examples as Messages",
+                        "follow_up_examples_file": "Follow-up Examples CSV Filename",
+                        "continue_conversation_marker": "Continue Conversation Marker"
                     },
                     "data_description": {
                         "llm_hass_api": "Select 'Assist' if you want the model to be able to control devices. If you are using the Home-LLM (v1-3) model then select 'Home Assistant Services'",
@@ -186,7 +198,11 @@
                         "tool_response_as_string": "Some prompt templates expect the tool response to be provided as a JSON serialized string, rather than the raw object.",
                         "max_tool_call_iterations": "Set to 0 to generate the response and tool call in one attempt, without looping (use this for Home models v1-v3).",
                         "enable_streaming": "When enabled, responses are streamed token-by-token when the backend supports it.",
-                        "use_server_sampling_defaults": "**Recommended for most users.** Inference engines and model providers have gotten much better at shipping models with well-tuned sampling defaults. Omits temperature, top_p, top_k, min_p, and typical_p from requests so the server uses the values it knows are best for the loaded model. Only disable this if you are experiencing odd output behavior or intentionally want to run at a lower temperature."
+                        "use_server_sampling_defaults": "**Recommended for most users.** Inference engines and model providers have gotten much better at shipping models with well-tuned sampling defaults. Omits temperature, top_p, top_k, min_p, and typical_p from requests so the server uses the values it knows are best for the loaded model. Only disable this if you are experiencing odd output behavior or intentionally want to run at a lower temperature.",
+                        "enable_follow_up_conversation": "When enabled, the model can end a response with the marker below to keep listening for a reply without repeating the wake word.",
+                        "send_follow_up_examples_as_messages": "Send the follow-up examples below as real conversation turns instead of describing them in the system prompt. Chat-tuned models tend to generalize the pattern more reliably this way.",
+                        "follow_up_examples_file": "CSV file (relative to this integration's folder) providing the follow-up examples: columns request, response, continue_conversation.",
+                        "continue_conversation_marker": "The exact text the model appends to a response when it wants to keep listening without the wake word."
                     },
                     "description": "Please configure the model according to how it should be prompted. There are many different options and selecting the correct ones for your model is essential to getting optimal performance. See [here](https://github.com/acon96/home-llm/blob/develop/docs/Backend%20Configuration.md) for more information about the options on this page.\n\n**Some defaults may have been chosen for you based on the name of the selected model name or filename.** If you renamed a file or are using a fine-tuning of a supported model, then the defaults may not have been detected.",
                     "title": "Configure the selected model"
