@@ -78,8 +78,8 @@ from .const import (
     DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION,
     CONF_CONTINUE_CONVERSATION_MARKER,
     DEFAULT_CONTINUE_CONVERSATION_MARKER,
-    CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
-    DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE,
+    CONF_SEND_FOLLOW_UP_EXAMPLES_AS_MESSAGES,
+    DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_MESSAGES,
 )
 
 from typing import TYPE_CHECKING
@@ -608,10 +608,10 @@ def get_follow_up_example_messages(
 
     `follow_up_examples` is whatever LocalLLMClient.follow_up_examples loaded
     from the configured CSV file (CONF_FOLLOW_UP_EXAMPLES_FILE) - see
-    entity.py's _load_follow_up_examples(). Normally
-    (CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE, default True) those same
+    entity.py's _load_follow_up_examples(). By default
+    (CONF_SEND_FOLLOW_UP_EXAMPLES_AS_MESSAGES, default False) those same
     examples are rendered as prose inside the system prompt instead - see
-    FOLLOW_UP_CONVERSATION_EXTRAS in const.py. When that option is disabled,
+    FOLLOW_UP_CONVERSATION_EXTRAS in const.py. When that option is enabled,
     this returns them as actual message-array turns, to be spliced in right
     after the system message and before the real conversation history. Chat-
     tuned models generalize a demonstrated pattern more reliably from real
@@ -620,13 +620,13 @@ def get_follow_up_example_messages(
     its definition in const.py.
 
     Returns an empty list whenever there's nothing to add (follow-up
-    conversation disabled, no examples loaded, or the system-message path is
+    conversation disabled, no examples loaded, or the system-prompt path is
     selected), so callers can unconditionally splice the result in without
     an extra guard.
     """
     if not entity_options.get(CONF_ENABLE_FOLLOW_UP_CONVERSATION, DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION):
         return []
-    if entity_options.get(CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE, DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE):
+    if not entity_options.get(CONF_SEND_FOLLOW_UP_EXAMPLES_AS_MESSAGES, DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_MESSAGES):
         return []
     if not follow_up_examples:
         return []

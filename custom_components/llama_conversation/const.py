@@ -91,12 +91,12 @@ ICL_EXTRAS = """
 # itself uncluttered and lets examples be edited/extended without touching
 # code. The same loaded list feeds get_follow_up_example_messages() in
 # utils.py for the send-as-real-message-turns delivery path (see
-# CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE) - one source of examples,
-# two ways of delivering them.
+# CONF_SEND_FOLLOW_UP_EXAMPLES_AS_MESSAGES) - one source of examples, two
+# ways of delivering them.
 FOLLOW_UP_CONVERSATION_EXTRAS = """
 {%- if enable_follow_up_conversation %}
 Most responses fully resolve the request and need no follow-up at all - this is not an instruction to always ask a follow-up question. Only when a follow-up genuinely makes sense (for example, you asked the user a clarifying question, or you are waiting on more information to complete their request), end your entire response with the exact text {{ continue_conversation_marker }} on its own line, and never include it otherwise.
-{%- if send_follow_up_examples_as_system_message and follow_up_examples %}
+{%- if not send_follow_up_examples_as_messages and follow_up_examples %}
 
 For example:
 {%- for example in follow_up_examples %}
@@ -202,18 +202,18 @@ CONF_REMEMBER_CONVERSATION_TIME_MINUTES = "remember_conversation_time_minutes"
 DEFAULT_REMEMBER_CONVERSATION_TIME_MINUTES = 2
 CONF_ENABLE_FOLLOW_UP_CONVERSATION = "enable_follow_up_conversation"
 DEFAULT_ENABLE_FOLLOW_UP_CONVERSATION = False
-CONF_FOLLOW_UP_EXAMPLES_FILE = "follow_up_examples_file"
-DEFAULT_FOLLOW_UP_EXAMPLES_FILE = "follow_up_examples.csv"
-CONF_CONTINUE_CONVERSATION_MARKER = "continue_conversation_marker"
-DEFAULT_CONTINUE_CONVERSATION_MARKER = "[CONTINUE]"
-# When True (the original/default behavior), the follow-up examples below are
-# rendered as prose inside the system prompt. When False, they're sent as
+# When False (the original/default behavior), the follow-up examples are
+# rendered as prose inside the system prompt. When True, they're sent as
 # actual user/assistant message turns instead - chat-tuned models generalize
 # a demonstrated pattern more reliably from real message-turn precedent than
 # from the same examples described in a system-prompt paragraph. See
 # get_follow_up_example_messages() in utils.py.
-CONF_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE = "send_follow_up_examples_as_system_message"
-DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_SYSTEM_MESSAGE = True
+CONF_SEND_FOLLOW_UP_EXAMPLES_AS_MESSAGES = "send_follow_up_examples_as_messages"
+DEFAULT_SEND_FOLLOW_UP_EXAMPLES_AS_MESSAGES = False
+CONF_FOLLOW_UP_EXAMPLES_FILE = "follow_up_examples_file"
+DEFAULT_FOLLOW_UP_EXAMPLES_FILE = "follow_up_examples.csv"
+CONF_CONTINUE_CONVERSATION_MARKER = "continue_conversation_marker"
+DEFAULT_CONTINUE_CONVERSATION_MARKER = "[CONTINUE]"
 CONF_MAX_TOOL_CALL_ITERATIONS = "max_tool_call_iterations"
 DEFAULT_MAX_TOOL_CALL_ITERATIONS = 3
 CONF_PROMPT_CACHING_ENABLED = "prompt_caching"
