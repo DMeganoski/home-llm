@@ -24,27 +24,48 @@ from homeassistant.requirements import pip_kwargs
 from homeassistant.util import color, package as package_util, json as ha_json
 from homeassistant.util.package import is_installed
 
-# Home Assistant's own internal voluptuous-derived schema objects changed
-# shape around HA 2026.9 (voluptuous_openapi -> probatio), and this
-# integration's manifest declares BOTH packages as unconditional
-# requirements so it installs cleanly either way. That means picking one at
-# import time via "whichever is importable" doesn't work as a version
-# switch - voluptuous_openapi is *always* importable since it's always
-# installed, so that branch always wins regardless of which one the running
-# HA version's schema objects actually match, silently producing UNSUPPORTED
-# for every single tool on the version that needed probatio instead. Import
-# both and try each at call time instead - see _convert_tool_parameters().
+_LOGGER = logging.getLogger(__name__)
+
+# Home Assistant Core >= 2026.9 rebuilt homeassistant.helpers.llm's
+# selector-to-schema custom_serializer around probatio instead of
+# voluptuous_openapi, but the *schema objects themselves* (tool.parameters
+# etc.) are still built with real voluptuous - only the serializer's "I can't
+# represent this, use your default handling" signal changed sentinel.
+# voluptuous_openapi.convert() checks that signal with `val is not
+# voluptuous_openapi.UNSUPPORTED` (its own specific object) before falling
+# back to normal conversion; when the passed-in custom_serializer instead
+# returns probatio.UNSUPPORTED (a *different* object), that check is always
+# true, so convert() immediately returns the raw foreign sentinel as the
+# "converted schema" for that node - which happens on nearly every field,
+# hence *every* tool failing outright rather than a handful of edge cases.
+# This is a documented, independently-verified break (see
+# https://github.com/michelle-avery/custom-conversation/pull/113) - fixed by
+# translating whichever foreign UNSUPPORTED sentinel a custom_serializer
+# returns into the sentinel the converter we're actually calling recognizes,
+# right before calling it. Both converters are still tried in turn (rather
+# than committing to one at import time - see prior fix attempt in git
+# history for why that alone doesn't work), each with its own sentinel
+# translated in, so whichever one actually matches these schema objects wins
+# regardless of what changes in a future HA version.
 _OPENAPI_CONVERTERS = []
 try:
-    from voluptuous_openapi import convert as _convert_voluptuous_openapi
-    _OPENAPI_CONVERTERS.append(_convert_voluptuous_openapi)
+    from voluptuous_openapi import convert as _convert_voluptuous_openapi, UNSUPPORTED as _VOL_OPENAPI_UNSUPPORTED
+    _OPENAPI_CONVERTERS.append((_convert_voluptuous_openapi, _VOL_OPENAPI_UNSUPPORTED))
 except ModuleNotFoundError:
     pass
 try:
-    from probatio import to_openapi as _convert_probatio
-    _OPENAPI_CONVERTERS.append(_convert_probatio)
+    from probatio import to_openapi as _convert_probatio, UNSUPPORTED as _PROBATIO_UNSUPPORTED
+    _OPENAPI_CONVERTERS.append((_convert_probatio, _PROBATIO_UNSUPPORTED))
 except ModuleNotFoundError:
     pass
+
+# Every UNSUPPORTED sentinel we know about, across all available converters -
+# used to recognize a "fall back" signal regardless of which converter
+# actually produced it, so it can be translated to whichever sentinel the
+# converter we're about to call expects.
+_KNOWN_UNSUPPORTED_SENTINELS = {sentinel for _, sentinel in _OPENAPI_CONVERTERS if sentinel is not None}
+
+_LOGGER.debug("OpenAPI schema converters available: %s", [f.__module__ for f, _ in _OPENAPI_CONVERTERS])
 
 from .const import (
     DOMAIN,
@@ -67,9 +88,6 @@ if TYPE_CHECKING:
 else:
     ChatCompletionRequestMessage = Any
     ChatCompletionTool = Any
-
-_LOGGER = logging.getLogger(__name__)
-
 
 class MissingQuantizationException(Exception):
     def __init__(self, missing_quant: str, available_quants: list[str]):
@@ -379,23 +397,49 @@ def install_llama_cpp_python(
 def format_url(*, hostname: str, port: str, ssl: bool, path: str):
     return f"{'https' if ssl else 'http'}://{hostname}{ ':' + port if port else ''}{path}"
 
+def _translate_unsupported_sentinel(custom_serializer, native_unsupported):
+    """Wrap `custom_serializer` so that if it returns some *other* known
+    converter's UNSUPPORTED sentinel (see _KNOWN_UNSUPPORTED_SENTINELS), it
+    gets translated to `native_unsupported` - the specific sentinel object
+    the converter we're about to call checks for internally (via `is`) to
+    decide whether to fall back to its own default handling for that schema
+    node. Without this, a foreign sentinel is indistinguishable from a real
+    (if unusual) serialized value, and gets used as one. A no-op wrapper if
+    there's nothing to translate."""
+    if custom_serializer is None or native_unsupported is None:
+        return custom_serializer
+
+    def wrapped(node_schema):
+        result = custom_serializer(node_schema)
+        # `in` on a set would hash `result` first, which blows up on the
+        # normal/successful case (custom_serializer legitimately returning
+        # an unhashable dict) - identity-compare against each sentinel
+        # individually instead, since that's all a `x is y` check ever
+        # needed anyway.
+        if result is not native_unsupported and any(result is s for s in _KNOWN_UNSUPPORTED_SENTINELS):
+            return native_unsupported
+        return result
+
+    return wrapped
+
 def convert_schema_to_openapi(schema, custom_serializer, log_label: str = "schema") -> dict | Any:
     """Try every available OpenAPI schema converter in turn (see
     _OPENAPI_CONVERTERS above) and return the first dict result.
 
-    voluptuous_openapi and probatio can each legitimately return their own
-    internal UNSUPPORTED sentinel for schema constructs they can't
-    represent, rather than a dict - that sentinel isn't itself a
-    library-stable object we can import and compare against safely across
-    both, so callers should just check `isinstance(result, dict)` rather
-    than comparing against a specific sentinel value.
+    Each converter gets `custom_serializer` wrapped via
+    _translate_unsupported_sentinel() so its own UNSUPPORTED-sentinel check
+    actually fires regardless of which converter originally produced
+    `custom_serializer` (e.g. Home Assistant Core's own, built against
+    probatio's sentinel even when the schema objects it hands us are real
+    voluptuous ones - see the comment on _OPENAPI_CONVERTERS above for the
+    full story). Callers should just check `isinstance(result, dict)` for
+    success rather than comparing against any specific sentinel value.
 
-    Which library actually succeeds depends on which one matches the
-    currently-running HA version's internal schema objects, not on anything
-    specific to a given schema - but trying every available converter per
-    call is cheap, and this way it just works regardless of which HA version
-    this happens to be running against, instead of committing to one converter
-    at import time (see _OPENAPI_CONVERTERS' own comment for why that broke).
+    Trying every available converter per call, rather than committing to one
+    at import time, means this keeps working regardless of which HA version
+    this happens to be running against - see _OPENAPI_CONVERTERS' own
+    comment for why "pick one by which package is importable" doesn't work
+    here.
 
     If every converter fails, returns whatever the last one produced
     (typically an UNSUPPORTED-shaped sentinel, or None if somehow neither
@@ -404,9 +448,10 @@ def convert_schema_to_openapi(schema, custom_serializer, log_label: str = "schem
     or drop anything.
     """
     result = None
-    for convert_to_openapi in _OPENAPI_CONVERTERS:
+    for convert_to_openapi, native_unsupported in _OPENAPI_CONVERTERS:
+        wrapped_serializer = _translate_unsupported_sentinel(custom_serializer, native_unsupported)
         try:
-            result = convert_to_openapi(schema, custom_serializer=custom_serializer)
+            result = convert_to_openapi(schema, custom_serializer=wrapped_serializer)
         except Exception:
             # A converter facing schema objects from the *other* library's
             # class hierarchy might raise instead of returning UNSUPPORTED,
@@ -420,7 +465,7 @@ def convert_schema_to_openapi(schema, custom_serializer, log_label: str = "schem
 
     _LOGGER.debug(
         "No available OpenAPI converter could convert %s (tried %s)",
-        log_label, [f.__module__ for f in _OPENAPI_CONVERTERS],
+        log_label, [f.__module__ for f, _ in _OPENAPI_CONVERTERS],
     )
     return result
 
